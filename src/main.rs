@@ -1,19 +1,18 @@
-use futures::{stream, StreamExt};
-use rand::{thread_rng, Rng};
-use std::time::{Duration};
+use axum::{
+    handler::get,
+    Router,
+};
+use anyhow::Error;
 
-const UPPER_BOUND: u64 = 200;
-const INSTANCE_COUNT: usize = 20;
-const SLEEP_UPPER_BOUND: u64 = 20;
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    // build our application with a single route
+    let app = Router::new().route("/", get(|| async { "Hello, World!" }));
 
-#[tokio::main(flavor = "multi_thread")]
-async fn main() {
-    stream::iter(0..UPPER_BOUND)
-        .for_each_concurrent(INSTANCE_COUNT, |number| async move {
-            let mut rng = thread_rng();
-            let sleep_ms: u64 = rng.gen_range(0..SLEEP_UPPER_BOUND);
-            tokio::time::sleep(Duration::from_millis(sleep_ms)).await;
-            println!("{}", number);
-        })
-        .await;
+    // run it with hyper on localhost:3000
+    axum::Server::bind(&"0.0.0.0:3000".parse()?)
+        .serve(app.into_make_service())
+        .await?;
+
+    Ok(())
 }
