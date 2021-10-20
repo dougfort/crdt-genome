@@ -16,12 +16,30 @@ impl Genome {
         }
     }
 
-    fn apply(&mut self, op: list::Op::<Gene, Actor>) {
+    /// append appends an item to the genome,
+    /// it returns an Op that can be passed to other actors
+    /// probably serialized to json over http
+    pub fn append(&mut self, item: u8, actor: Actor) -> list::Op::<Gene, Actor> {
+        let op = self.genes.append(item, actor);
+        self.genes.apply(op.clone());
+        op
+    }
+
+    /// apply applies an op, probably one created by a remote Actor
+    pub fn apply(&mut self, op: list::Op::<Gene, Actor>) {
         self.genes.apply(op)
     }
 
     fn is_equal(&self, rhs: &Self) -> bool {
         self.genes.iter().cmp(rhs.genes.iter()) == Ordering::Equal        
+    }
+}
+
+impl Default for Genome {
+    fn default() -> Self { 
+        Genome{
+            genes: ListOfGenes::new(),
+        }
     }
 }
 
@@ -45,9 +63,8 @@ mod tests {
         let x: Gene = 42;
         let a: Actor = 111;
 
-        let op = g.genes.append(x, a);
-        g.apply(op);
-
+        let _op = g.append(x, a);
+    
         let v = g.genes.read::<Vec<&u8>>();
         assert_eq!(v, vec![&42]);
     }
@@ -60,39 +77,13 @@ mod tests {
         const A1: Actor = 111;
         const A2: Actor = 222;
 
-        let mut g1ops = vec![];
-        {
-            let op = g1.genes.append(1, A1);
-            g1ops.push(op.clone());
-            g1.apply(op);
-        }
-        {
-            let op = g1.genes.append(2, A1);
-            g1ops.push(op.clone());
-            g1.apply(op);
-        }
-        {
-            let op = g1.genes.append(3, A1);
-            g1ops.push(op.clone());
-            g1.apply(op);
-        }
+        let mut g1ops = vec![g1.append(1, A1)];
+        g1ops.push(g1.append(2, A1));
+        g1ops.push(g1.append(3, A1));
 
-        let mut g2ops = vec![];
-        {
-            let op = g2.genes.append(4, A2);
-            g2ops.push(op.clone());
-            g2.apply(op);
-        }
-        {
-            let op = g2.genes.append(5, A2);
-            g2ops.push(op.clone());
-            g2.apply(op);
-        }
-        {
-            let op = g2.genes.append(6, A2);
-            g2ops.push(op.clone());
-            g2.apply(op);
-        }
+        let mut g2ops = vec![g2.append(4, A2)];
+        g2ops.push(g2.append(5, A2));
+        g2ops.push(g2.append(6, A2));
 
         for op in &g2ops {
             g1.apply(op.clone());
