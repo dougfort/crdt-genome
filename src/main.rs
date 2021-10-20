@@ -8,6 +8,8 @@ use std::time::{Duration};
 use tokio::sync::Notify;
 use std::sync::Arc;
 
+mod genome;
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let mutator_notify = Arc::new(Notify::new());
