@@ -5,6 +5,7 @@
 Experiments with [Rust CRDTs](https://github.com/rust-crdt/rust-crdt) using [Axum](https://github.com/tokio-rs/axum).
 
 Mutating a simple *genome* consisting of a list of numbers.
+
 ## Background
 
 This project comes from my interest in the work of [Martin Kleppmann](https://martin.kleppmann.com/).

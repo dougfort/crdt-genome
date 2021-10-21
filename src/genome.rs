@@ -1,5 +1,5 @@
+use std::fmt;
 use crdts::{list, CmRDT, List};
-use std::cmp::Ordering;
 
 pub type Actor = usize;
 pub type Gene = u8;
@@ -30,16 +30,27 @@ impl Genome {
         self.genes.apply(op)
     }
 
+    #[cfg(test)]
     fn is_equal(&self, rhs: &Self) -> bool {
+        use std::cmp::Ordering;
         self.genes.iter().cmp(rhs.genes.iter()) == Ordering::Equal
     }
 }
 
 impl Default for Genome {
     fn default() -> Self {
-        Genome {
-            genes: ListOfGenes::new(),
-        }
+        Genome::new()
+    }
+}
+
+impl fmt::Display for Genome {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut out = String::new();
+        for gene in self.genes.iter() {
+            let s = format!("{:02x}", gene);
+            out.push_str(&s);
+        };
+        write!(f, "{}", out)
     }
 }
 
@@ -100,5 +111,18 @@ mod tests {
         println!("g2 genes = {:?}", g2_genes);
 
         assert!(g1.is_equal(&g2));
+    }
+
+    #[test]
+    fn display_looks_right() {
+        const ACTOR: Actor = 42;
+        let mut g = Genome::new();
+        assert_eq!(format!("{}", g), "");
+        g.apply(g.genes.append(0, ACTOR));
+        assert_eq!(format!("{}", g), "00");
+        g.apply(g.genes.append(1, ACTOR));
+        assert_eq!(format!("{}", g), "0001");
+        g.apply(g.genes.append(255, ACTOR));
+        assert_eq!(format!("{}", g), "0001ff");
     }
 }
