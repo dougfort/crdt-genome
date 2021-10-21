@@ -1,8 +1,8 @@
 use crdts::{list, List, CmRDT};
 use std::cmp::Ordering;
 
-type Actor = usize;
-type Gene = u8;
+pub type Actor = usize;
+pub type Gene = u8;
 type ListOfGenes = List::<Gene, Actor>;  
 
 pub struct Genome {
