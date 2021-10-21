@@ -1,9 +1,9 @@
-use crdts::{list, List, CmRDT};
+use crdts::{list, CmRDT, List};
 use std::cmp::Ordering;
 
 pub type Actor = usize;
 pub type Gene = u8;
-type ListOfGenes = List::<Gene, Actor>;  
+type ListOfGenes = List<Gene, Actor>;
 
 pub struct Genome {
     genes: ListOfGenes,
@@ -11,7 +11,7 @@ pub struct Genome {
 
 impl Genome {
     fn new() -> Self {
-        Genome{
+        Genome {
             genes: ListOfGenes::new(),
         }
     }
@@ -19,25 +19,25 @@ impl Genome {
     /// append appends an item to the genome,
     /// it returns an Op that can be passed to other actors
     /// probably serialized to json over http
-    pub fn append(&mut self, item: u8, actor: Actor) -> list::Op::<Gene, Actor> {
+    pub fn append(&mut self, item: u8, actor: Actor) -> list::Op<Gene, Actor> {
         let op = self.genes.append(item, actor);
         self.genes.apply(op.clone());
         op
     }
 
     /// apply applies an op, probably one created by a remote Actor
-    pub fn apply(&mut self, op: list::Op::<Gene, Actor>) {
+    pub fn apply(&mut self, op: list::Op<Gene, Actor>) {
         self.genes.apply(op)
     }
 
     fn is_equal(&self, rhs: &Self) -> bool {
-        self.genes.iter().cmp(rhs.genes.iter()) == Ordering::Equal        
+        self.genes.iter().cmp(rhs.genes.iter()) == Ordering::Equal
     }
 }
 
 impl Default for Genome {
-    fn default() -> Self { 
-        Genome{
+    fn default() -> Self {
+        Genome {
             genes: ListOfGenes::new(),
         }
     }
@@ -64,7 +64,7 @@ mod tests {
         let a: Actor = 111;
 
         let _op = g.append(x, a);
-    
+
         let v = g.genes.read::<Vec<&u8>>();
         assert_eq!(v, vec![&42]);
     }
