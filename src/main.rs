@@ -1,10 +1,9 @@
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use axum::{
     extract::Extension,
     handler::{get, post},
     Json, Router,
 };
-use clap::{crate_version, App, Arg};
 use crdts::list;
 use hyper::{Body, Client, Method, Request};
 use rand::Rng;
@@ -16,6 +15,8 @@ use tower_http::{add_extension::AddExtensionLayer, trace::TraceLayer};
 
 mod genome;
 use genome::{Actor, Gene};
+
+mod config;
 
 type SharedState = Arc<RwLock<State>>;
 
@@ -32,52 +33,13 @@ async fn main() -> Result<(), Error> {
     }
     tracing_subscriber::fmt::init();
 
-    let matches = App::new("CRDT Genome")
-        .about("using CRDT to mutate a simple genome")
-        .version(crate_version!())
-        .arg(
-            Arg::with_name("actor")
-                .short("a")
-                .long("actor")
-                .required(true)
-                .takes_value(true)
-                .help("the actor id of this server"),
-        )
-        .arg(
-            Arg::with_name("count")
-                .short("c")
-                .long("count")
-                .required(true)
-                .takes_value(true)
-                .help("The number of actors"),
-        )
-        .arg(
-            Arg::with_name("base")
-                .short("b")
-                .long("base")
-                .required(true)
-                .takes_value(true)
-                .help("base port number"),
-        )
-        .get_matches();
+    let config = config::load_configuration()?;
 
-    let actor_id: usize = matches
-        .value_of("actor")
-        .ok_or_else(|| anyhow!("must specify actor id"))?
-        .parse()?;
-    let actor_count: usize = matches
-        .value_of("count")
-        .ok_or_else(|| anyhow!("must specify actor count"))?
-        .parse()?;
-    let base_port_number: usize = matches
-        .value_of("base")
-        .ok_or_else(|| anyhow!("must specify base port number"))?
-        .parse()?;
     tracing::info!(
         "actor = {}; count = {}, base port = {}",
-        actor_id,
-        actor_count,
-        base_port_number
+        config.actor_id,
+        config.actor_count,
+        config.base_port_number
     );
 
     let state = SharedState::default();
@@ -87,14 +49,7 @@ async fn main() -> Result<(), Error> {
 
     let mutator_state = state.clone();
     let mutator_handle = tokio::spawn(async move {
-        mutator(
-            mutator_state,
-            actor_id,
-            actor_count,
-            base_port_number,
-            mutator_notify2,
-        )
-        .await;
+        mutator(mutator_state, config, mutator_notify2).await;
     });
 
     // build our application with a single route
@@ -105,7 +60,7 @@ async fn main() -> Result<(), Error> {
         .layer(ServiceBuilder::new().layer(AddExtensionLayer::new(state)));
 
     // run it with hyper
-    let port_number = base_port_number + actor_id;
+    let port_number = config.base_port_number + config.actor_id;
     let addr = format!("0.0.0.0:{}", port_number).parse()?;
     tracing::debug!("Listening on {}", addr);
     axum::Server::bind(&addr)
@@ -134,9 +89,7 @@ async fn update_genome(
 
 async fn mutator(
     state: Arc<RwLock<State>>,
-    actor: usize,
-    count: usize,
-    base_port_number: usize,
+    config: config::Config,
     mutator_notify: Arc<tokio::sync::Notify>,
 ) {
     // wait for the server to start
@@ -147,13 +100,13 @@ async fn mutator(
         let op = {
             let item: u8 = 43;
             let mut lock = state.write().unwrap();
-            tracing::debug!("actor: {}; appending 0x{:02x}", actor, item);
-            lock.genome.append(item, actor)
+            tracing::debug!("actor: {}; appending 0x{:02x}", config.actor_id, item);
+            lock.genome.append(item, config.actor_id)
         };
-        for i in 0..count {
-            if i != actor {
+        for i in 0..config.actor_count {
+            if i != config.actor_id {
                 let op_string = serde_json::to_string(&op).unwrap();
-                let port_number = base_port_number + i;
+                let port_number = config.base_port_number + i;
                 let uri = format!("http://127.0.0.1:{}/genome", port_number);
                 let req = Request::builder()
                     .method(Method::POST)
