@@ -1,9 +1,10 @@
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use axum::{
     extract::Extension,
     handler::{get, post},
     Json, Router,
 };
+use clap::{crate_version, App, Arg};
 use crdts::list;
 use hyper::{Body, Client, Method, Request};
 use rand::Rng;
@@ -31,7 +32,54 @@ async fn main() -> Result<(), Error> {
     }
     tracing_subscriber::fmt::init();
 
-    let actor_id: usize = 8888;
+    let matches = App::new("CRDT Genome")
+        .about("using CRDT to mutate a simple genome")
+        .version(crate_version!())
+        .arg(
+            Arg::with_name("actor")
+                .short("a")
+                .long("actor")
+                .required(true)
+                .takes_value(true)
+                .help("the actor id of this server"),
+        )
+        .arg(
+            Arg::with_name("count")
+                .short("c")
+                .long("count")
+                .required(true)
+                .takes_value(true)
+                .help("The number of actors"),
+        )
+        .arg(
+            Arg::with_name("base")
+                .short("b")
+                .long("base")
+                .required(true)
+                .takes_value(true)
+                .help("base port number"),
+        )
+        .get_matches();
+
+    let actor_id: usize = matches
+        .value_of("actor")
+        .ok_or_else(|| anyhow!("must specify actor id"))?
+        .parse()?;
+    let actor_count: usize = matches
+        .value_of("count")
+        .ok_or_else(|| anyhow!("must specify actor count"))?
+        .parse()?;
+    let base_port_number: usize = matches
+        .value_of("base")
+        .ok_or_else(|| anyhow!("must specify base port number"))?
+        .parse()?;
+    tracing::info!(
+        "actor = {}; count = {}, base port = {}",
+        actor_id,
+        actor_count,
+        base_port_number
+    );
+
     let state = SharedState::default();
 
     let mutator_notify = Arc::new(Notify::new());
@@ -39,7 +87,14 @@ async fn main() -> Result<(), Error> {
 
     let mutator_state = state.clone();
     let mutator_handle = tokio::spawn(async move {
-        mutator(mutator_state, actor_id, mutator_notify2).await;
+        mutator(
+            mutator_state,
+            actor_id,
+            actor_count,
+            base_port_number,
+            mutator_notify2,
+        )
+        .await;
     });
 
     // build our application with a single route
@@ -50,7 +105,8 @@ async fn main() -> Result<(), Error> {
         .layer(ServiceBuilder::new().layer(AddExtensionLayer::new(state)));
 
     // run it with hyper
-    let addr = "0.0.0.0:3000".parse()?;
+    let port_number = base_port_number + actor_id;
+    let addr = format!("0.0.0.0:{}", port_number).parse()?;
     tracing::debug!("Listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -79,6 +135,8 @@ async fn update_genome(
 async fn mutator(
     state: Arc<RwLock<State>>,
     actor: usize,
+    count: usize,
+    base_port_number: usize,
     mutator_notify: Arc<tokio::sync::Notify>,
 ) {
     // wait for the server to start
@@ -89,19 +147,25 @@ async fn mutator(
         let op = {
             let item: u8 = 43;
             let mut lock = state.write().unwrap();
-            tracing::debug!("actor: {}; appending {}", actor, item);
+            tracing::debug!("actor: {}; appending 0x{:02x}", actor, item);
             lock.genome.append(item, actor)
         };
-        let op_string = serde_json::to_string(&op).unwrap();
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri("http://127.0.0.1:3000/genome")
-            .header("content-type", "application/json")
-            .body(Body::from(op_string))
-            .unwrap();
-        let client = Client::new();
-        let resp = client.request(req).await.unwrap();
-        tracing::debug!("/genome Response: {}", resp.status());
+        for i in 0..count {
+            if i != actor {
+                let op_string = serde_json::to_string(&op).unwrap();
+                let port_number = base_port_number + i;
+                let uri = format!("http://127.0.0.1:{}/genome", port_number);
+                let req = Request::builder()
+                    .method(Method::POST)
+                    .uri(uri.clone())
+                    .header("content-type", "application/json")
+                    .body(Body::from(op_string))
+                    .unwrap();
+                let client = Client::new();
+                let resp = client.request(req).await.unwrap();
+                tracing::debug!("POST {}; Response: {}", uri, resp.status());
+            }
+        }
         let sleep_interval = {
             let mut rng = rand::thread_rng();
             Duration::from_secs(rng.gen_range(0..20))

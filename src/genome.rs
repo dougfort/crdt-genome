@@ -1,5 +1,5 @@
-use std::fmt;
 use crdts::{list, CmRDT, List};
+use std::fmt;
 
 pub type Actor = usize;
 pub type Gene = u8;
@@ -27,7 +27,8 @@ impl Genome {
 
     /// apply applies an op, probably one created by a remote Actor
     pub fn apply(&mut self, op: list::Op<Gene, Actor>) {
-        self.genes.apply(op)
+        self.genes.apply(op);
+        tracing::debug!("after Genome::apply: {}", self);
     }
 
     #[cfg(test)]
@@ -49,7 +50,7 @@ impl fmt::Display for Genome {
         for gene in self.genes.iter() {
             let s = format!("{:02x}", gene);
             out.push_str(&s);
-        };
+        }
         write!(f, "{}", out)
     }
 }

@@ -1,0 +1,26 @@
+[2mOct 22 11:17:01.923[0m [32m INFO[0m crdt_genome: actor = 1; count = 2, base port = 8000
+[2mOct 22 11:17:01.923[0m [34mDEBUG[0m crdt_genome: Listening on 0.0.0.0:8001
+[2mOct 22 11:17:06.924[0m [34mDEBUG[0m crdt_genome: actor: 1; appending 0x2b
+[2mOct 22 11:17:06.925[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_request: started processing request
+[2mOct 22 11:17:06.926[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome: server received op: Insert { id: Identifier([(Ratio { numer: BigInt { sign: NoSign, data: BigUint { data: [] } }, denom: BigInt { sign: Plus, data: BigUint { data: [1] } } }, OrdDot { actor: 0, counter: 1 })]), val: 43 }
+[2mOct 22 11:17:06.926[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome::genome: after Genome::apply: 2b2b
+[2mOct 22 11:17:06.926[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_response: finished processing request latency=0 ms status=200
+[2mOct 22 11:17:06.926[0m [34mDEBUG[0m crdt_genome: POST http://127.0.0.1:8000/genome; Response: 200 OK
+[2mOct 22 11:17:11.928[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_request: started processing request
+[2mOct 22 11:17:11.928[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome: server received op: Insert { id: Identifier([(Ratio { numer: BigInt { sign: Plus, data: BigUint { data: [1] } }, denom: BigInt { sign: Plus, data: BigUint { data: [1] } } }, OrdDot { actor: 0, counter: 2 })]), val: 43 }
+[2mOct 22 11:17:11.928[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome::genome: after Genome::apply: 2b2b2b
+[2mOct 22 11:17:11.928[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_response: finished processing request latency=0 ms status=200
+[2mOct 22 11:17:18.927[0m [34mDEBUG[0m crdt_genome: actor: 1; appending 0x2b
+[2mOct 22 11:17:18.929[0m [34mDEBUG[0m crdt_genome: POST http://127.0.0.1:8000/genome; Response: 200 OK
+[2mOct 22 11:17:21.931[0m [34mDEBUG[0m crdt_genome: actor: 1; appending 0x2b
+[2mOct 22 11:17:21.933[0m [34mDEBUG[0m crdt_genome: POST http://127.0.0.1:8000/genome; Response: 200 OK
+[2mOct 22 11:17:23.932[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_request: started processing request
+[2mOct 22 11:17:23.932[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome: server received op: Insert { id: Identifier([(Ratio { numer: BigInt { sign: Plus, data: BigUint { data: [4] } }, denom: BigInt { sign: Plus, data: BigUint { data: [1] } } }, OrdDot { actor: 0, counter: 3 })]), val: 43 }
+[2mOct 22 11:17:23.932[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome::genome: after Genome::apply: 2b2b2b2b2b2b
+[2mOct 22 11:17:23.932[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_response: finished processing request latency=0 ms status=200
+[2mOct 22 11:17:31.936[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_request: started processing request
+[2mOct 22 11:17:31.936[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome: server received op: Insert { id: Identifier([(Ratio { numer: BigInt { sign: Plus, data: BigUint { data: [5] } }, denom: BigInt { sign: Plus, data: BigUint { data: [1] } } }, OrdDot { actor: 0, counter: 4 })]), val: 43 }
+[2mOct 22 11:17:31.937[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: crdt_genome::genome: after Genome::apply: 2b2b2b2b2b2b2b
+[2mOct 22 11:17:31.937[0m [34mDEBUG[0m [1mrequest[0m[1m{[0mmethod=POST uri=/genome version=HTTP/1.1[1m}[0m: tower_http::trace::on_response: finished processing request latency=0 ms status=200
+[2mOct 22 11:17:35.783[0m [32m INFO[0m crdt_genome: signal received, starting graceful shutdown
+[2mOct 22 11:17:35.784[0m [34mDEBUG[0m crdt_genome: mutator join result = ()
