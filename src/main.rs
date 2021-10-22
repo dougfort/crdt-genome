@@ -98,10 +98,8 @@ async fn mutator(
     let mut more = true;
     while more {
         let op = {
-            let item: u8 = 43;
             let mut lock = state.write().unwrap();
-            tracing::debug!("actor: {}; appending 0x{:02x}", config.actor_id, item);
-            lock.genome.append(item, config.actor_id)
+            lock.genome.generate(config.actor_id)
         };
         for i in 0..config.actor_count {
             if i != config.actor_id {
