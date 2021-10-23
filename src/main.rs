@@ -76,14 +76,13 @@ async fn main() -> Result<(), Error> {
 }
 
 async fn say_hello() -> String {
-    "Hello, World!".to_string()
+    "Hello, World!\n".to_string()
 }
 
 async fn update_genome(
     Json(op): Json<list::Op<Gene, Actor>>,
     Extension(state): Extension<SharedState>,
 ) {
-    tracing::debug!("server received op: {:?}", op);
     state.write().unwrap().genome.apply(op);
 }
 

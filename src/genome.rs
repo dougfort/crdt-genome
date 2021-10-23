@@ -20,10 +20,14 @@ impl Genome {
     /// generate generates a random change to the genome
     /// it returns an Op that can be passed to other actors
     pub fn generate(&mut self, actor: Actor) -> list::Op<Gene, Actor> {
+        // TODO: make min_length configurable
+        const MIN_LEN: usize = 10;
+
         let mut rng = thread_rng();
 
         // generate a boolean to choose insert or delete
-        let op = if self.genes.is_empty() || rng.gen() {
+        // force insert if the list is below a minimum length
+        let op = if self.genes.len() < MIN_LEN || rng.gen() {
             //insert
 
             // we include =self.genes.len() to append
@@ -42,6 +46,7 @@ impl Genome {
         };
 
         self.genes.apply(op.clone());
+        tracing::debug!("after Genome::generate: {}", self);
         op
     }
 
