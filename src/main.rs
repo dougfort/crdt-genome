@@ -100,20 +100,23 @@ async fn mutator(
             let mut lock = state.write().unwrap();
             lock.genome.generate(config.actor_id)
         };
+        let op_string = serde_json::to_string(&op).unwrap();
         for i in 0..config.actor_count {
             if i != config.actor_id {
-                let op_string = serde_json::to_string(&op).unwrap();
-                let port_number = config.base_port_number + i;
-                let uri = format!("http://127.0.0.1:{}/genome", port_number);
-                let req = Request::builder()
-                    .method(Method::POST)
-                    .uri(uri.clone())
-                    .header("content-type", "application/json")
-                    .body(Body::from(op_string))
-                    .unwrap();
-                let client = Client::new();
-                let resp = client.request(req).await.unwrap();
-                tracing::debug!("POST {}; Response: {}", uri, resp.status());
+                let op_string = op_string.clone();
+                tokio::spawn(async move {
+                    let port_number = config.base_port_number + i;
+                    let uri = format!("http://127.0.0.1:{}/genome", port_number);
+                    let req = Request::builder()
+                        .method(Method::POST)
+                        .uri(uri.clone())
+                        .header("content-type", "application/json")
+                        .body(Body::from(op_string))
+                        .unwrap();
+                    let client = Client::new();
+                    let resp = client.request(req).await.unwrap();
+                    tracing::debug!("POST {}; Response: {}", uri, resp.status());
+                });
             }
         }
         let sleep_interval = {
