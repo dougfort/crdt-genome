@@ -52,10 +52,11 @@ async fn main() -> Result<(), Error> {
         mutator(mutator_state, config, mutator_notify2).await;
     });
 
-    // build our application with a single route
+    // build our application
     let app = Router::new()
         .route("/", get(say_hello))
         .route("/genome", post(update_genome))
+        .route("/genome", get(get_genome))
         .layer(TraceLayer::new_for_http())
         .layer(ServiceBuilder::new().layer(AddExtensionLayer::new(state)));
 
@@ -84,6 +85,12 @@ async fn update_genome(
     Extension(state): Extension<SharedState>,
 ) {
     state.write().unwrap().genome.apply(op);
+}
+
+async fn get_genome(
+    Extension(state): Extension<SharedState>,
+) -> String {
+    format!("{}", state.read().unwrap().genome)
 }
 
 async fn mutator(
