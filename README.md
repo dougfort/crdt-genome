@@ -16,10 +16,17 @@ See this [Podcast](https://museapp.com/podcast/41-local-first-software/)
 
 Also this [conference talk](https://www.youtube.com/watch?v=Exr0iY_D-vw&t=1s)
 
-## Configuration
+## Scenario
 
-This is a simple demo system. The scenario is N Actors all modifying a CRDT List
-of u8 items.
+A group of Axum processes represents a group of Actors.
+
+Each Actor maintains a genome, represented by a [CRDT List](https://docs.rs/crdts/7.0.0/crdts/list/struct.List.html#).
+
+An Actor mutates its genome at random intervals and broadcasts a [CmRDT Op](https://docs.rs/crdts/7.0.0/crdts/trait.CmRDT.html#associatedtype.Op) to notify the other Actors of the change.
+
+The goal is to observe every genome instance convergingto a common value.
+
+## Configuration
 
 ```bash
 USAGE:
