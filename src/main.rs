@@ -5,7 +5,7 @@ use axum::{
     Json, Router,
 };
 use crdts::list;
-use hyper::{Body, Client, Method, Request};
+use hyper::{body, Body, Client, Method, Request};
 use rand::Rng;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -52,6 +52,14 @@ async fn main() -> Result<(), Error> {
         mutator(mutator_state, config, mutator_notify2).await;
     });
 
+    let verifier_notify = Arc::new(Notify::new());
+    let verifier_notify2 = Arc::clone(&verifier_notify);
+
+    let verifier_state = state.clone();
+    let verifier_handle = tokio::spawn(async move {
+        verifier(verifier_state, config, verifier_notify2).await;
+    });
+
     // build our application
     let app = Router::new()
         .route("/", get(say_hello))
@@ -73,6 +81,10 @@ async fn main() -> Result<(), Error> {
     let join_result = mutator_handle.await?;
     tracing::debug!("mutator join result = {:?}", join_result);
 
+    verifier_notify.notify_one();
+    let join_result = verifier_handle.await?;
+    tracing::debug!("verifier join result = {:?}", join_result);
+
     Ok(())
 }
 
@@ -87,18 +99,19 @@ async fn update_genome(
     state.write().unwrap().genome.apply(op);
 }
 
-async fn get_genome(
-    Extension(state): Extension<SharedState>,
-) -> String {
+async fn get_genome(Extension(state): Extension<SharedState>) -> String {
     format!("{}", state.read().unwrap().genome)
 }
 
+/// mutator is an async function that periodically mutates the genome
+/// mutator broadcasts CmRDT Op notification to the other Actors
 async fn mutator(
     state: Arc<RwLock<State>>,
     config: config::Config,
     mutator_notify: Arc<tokio::sync::Notify>,
 ) {
     // wait for the server to start
+    // TODO: #3 retry connection
     tokio::time::sleep(Duration::from_secs(5)).await;
 
     let mut more = true;
@@ -134,6 +147,47 @@ async fn mutator(
             _ = tokio::time::sleep(sleep_interval) => {}
             _ = mutator_notify.notified() => {more = false}
         }
+    }
+}
+
+/// verifier is an async function that polls the other Actors for their
+/// current genome and compares them to the local genome
+async fn verifier(
+    state: Arc<RwLock<State>>,
+    config: config::Config,
+    verifier_notify: Arc<tokio::sync::Notify>,
+) {
+    // wait for the server to start
+    // TODO: #3 retry connection
+    tokio::time::sleep(Duration::from_secs(5)).await;
+
+    let mut more = true;
+    while more {
+        let mut match_count = 0;
+        for i in 0..config.actor_count {
+            if i != config.actor_id {
+                let port_number = config.base_port_number + i;
+                let uri: hyper::Uri = format!("http://127.0.0.1:{}/genome", port_number)
+                    .parse()
+                    .unwrap();
+                let client = Client::new();
+                let resp = client.get(uri.clone()).await.unwrap();
+                tracing::debug!("GET {}; Response: {}", uri, resp.status());
+                let bytes = body::to_bytes(resp.into_body()).await.unwrap();
+                let remote_genome_str =
+                    String::from_utf8(bytes.to_vec()).expect("response was not valid utf-8");
+                let local_genome_str = state.read().unwrap().genome.to_string();
+                if local_genome_str == remote_genome_str {
+                    match_count += 1;
+                }
+            }
+        }
+        tracing::debug!("match count = {}", match_count);
+        let sleep_interval = Duration::from_secs(5);
+        tokio::select! {
+            _ = tokio::time::sleep(sleep_interval) => {}
+            _ = verifier_notify.notified() => {more = false}
+        };
     }
 }
 
