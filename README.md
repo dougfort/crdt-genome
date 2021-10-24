@@ -26,6 +26,10 @@ An Actor mutates its genome at random intervals and broadcasts a [CmRDT Op](http
 
 The goal is to observe every genome instance converging to a common value.
 
+*This little system has serious shortcomings. If an Actor joins late, or drops
+out and rejoins, or even loses a single POST request, it will never have the
+full genome*.
+
 ## Execution
 
 to run three actors, first bring the executeable up to date:
@@ -35,7 +39,6 @@ cargo build
 ```
 
 Then run three instances of the executeable
-
 
 ```bash
 #!/bin/bash
