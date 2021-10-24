@@ -18,7 +18,6 @@ pub struct Genome {
 }
 
 impl Genome {
-
     /// return a new, empty Genome object
     fn new() -> Self {
         Genome {

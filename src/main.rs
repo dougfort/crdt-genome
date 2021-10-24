@@ -93,7 +93,6 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-
 /// HTTP handler for GET /
 async fn say_hello() -> String {
     "Hello, World!\n".to_string()
