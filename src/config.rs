@@ -1,6 +1,7 @@
 use clap::{crate_version, App, Arg};
 use thiserror::Error;
 
+/// commandline configuration options
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     pub actor_id: usize,
@@ -8,6 +9,7 @@ pub struct Config {
     pub base_port_number: usize,
 }
 
+/// returned Error for configuration failures
 #[derive(Error, Debug)]
 pub enum ConfigError {
     /// A mandatory item was not supplied
@@ -19,6 +21,7 @@ pub enum ConfigError {
     ParseError(#[from] std::num::ParseIntError),
 }
 
+/// load and parse commandline config options
 pub fn load_configuration() -> Result<Config, ConfigError> {
     let matches = App::new("CRDT Genome")
         .about("using CRDT to mutate a simple genome")

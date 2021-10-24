@@ -1,3 +1,8 @@
+#![warn(missing_docs)]
+
+//! crdts-genome
+//! Experiments with Rust CRDTs using Tokio web application framework Axum.
+
 use anyhow::Error;
 use axum::{
     extract::Extension,
@@ -88,10 +93,14 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
+
+/// HTTP handler for GET /
 async fn say_hello() -> String {
     "Hello, World!\n".to_string()
 }
 
+/// HTTP handler for POST /genome
+/// Request body must contain a JSON representation of a CmRDT Op object
 async fn update_genome(
     Json(op): Json<list::Op<Gene, Actor>>,
     Extension(state): Extension<SharedState>,
@@ -99,12 +108,15 @@ async fn update_genome(
     state.write().unwrap().genome.apply(op);
 }
 
+/// HTTP handler for GET /genome
+/// returns a string representation of the genome
 async fn get_genome(Extension(state): Extension<SharedState>) -> String {
     format!("{}", state.read().unwrap().genome)
 }
 
-/// mutator is an async function that periodically mutates the genome
-/// mutator broadcasts CmRDT Op notification to the other Actors
+/// an async function that periodically mutates the genome
+/// circulates CmRDT Op notification to the other actors
+/// using HTTP Post /genome
 async fn mutator(
     state: Arc<RwLock<State>>,
     config: config::Config,
@@ -150,8 +162,9 @@ async fn mutator(
     }
 }
 
-/// verifier is an async function that polls the other Actors for their
-/// current genome and compares them to the local genome
+/// peridically poll the other actors for their current genome
+/// uses HTTP GET /genome
+/// reports a count of the number of matchig genomes
 async fn verifier(
     state: Arc<RwLock<State>>,
     config: config::Config,
@@ -191,6 +204,8 @@ async fn verifier(
     }
 }
 
+/// unix signal handler
+/// pasted from Axum exampe
 #[cfg(unix)]
 async fn shutdown_signal() {
     use std::io;
@@ -210,6 +225,8 @@ async fn shutdown_signal() {
     tracing::info!("signal received, starting graceful shutdown")
 }
 
+/// windows signal handler
+/// pasted from Axum exampe
 #[cfg(windows)]
 async fn shutdown_signal() {
     tokio::signal::ctrl_c()
