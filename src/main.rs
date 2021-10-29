@@ -87,7 +87,7 @@ async fn main() -> Result<(), Error> {
     let join_result = mutator_handle.await?;
     tracing::debug!("mutator join result = {:?}", join_result);
 
-     let join_result = verifier_handle.await?;
+    let join_result = verifier_handle.await?;
     tracing::debug!("verifier join result = {:?}", join_result);
 
     Ok(())
@@ -125,8 +125,8 @@ async fn mutator(
     // TODO: #3 retry connection
     tokio::time::sleep(Duration::from_secs(5)).await;
 
-    let mut more = true;
-    while more {
+    let mut halt = *halt_rx.borrow();
+    while !halt {
         let op = {
             let mut lock = state.write().unwrap();
             lock.genome.generate(config.actor_id)
@@ -156,7 +156,7 @@ async fn mutator(
         };
         tokio::select! {
             _ = tokio::time::sleep(sleep_interval) => {}
-            _ = halt_rx.changed() => {more = false}
+            _ = halt_rx.changed() => {halt = *halt_rx.borrow()}
         }
     }
 }
@@ -173,8 +173,8 @@ async fn verifier(
     // TODO: #3 retry connection
     tokio::time::sleep(Duration::from_secs(5)).await;
 
-    let mut more = true;
-    while more {
+    let mut halt = *halt_rx.borrow();
+    while !halt {
         let mut match_count = 0;
         for i in 0..config.actor_count {
             if i != config.actor_id {
@@ -198,7 +198,7 @@ async fn verifier(
         let sleep_interval = Duration::from_secs(5);
         tokio::select! {
             _ = tokio::time::sleep(sleep_interval) => {}
-            _ = halt_rx.changed() => {more = false}
+            _ = halt_rx.changed() => {halt = *halt_rx.borrow()}
         };
     }
 }
