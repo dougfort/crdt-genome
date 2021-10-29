@@ -14,7 +14,7 @@ use hyper::{body, Body, Client, Method, Request};
 use rand::Rng;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use tokio::sync::Notify;
+use tokio::sync::watch;
 use tower::ServiceBuilder;
 use tower_http::{add_extension::AddExtensionLayer, trace::TraceLayer};
 
@@ -49,20 +49,19 @@ async fn main() -> Result<(), Error> {
 
     let state = SharedState::default();
 
-    let mutator_notify = Arc::new(Notify::new());
-    let mutator_notify2 = Arc::clone(&mutator_notify);
+    let mut halt = false;
+    let (halt_tx, halt_rx) = watch::channel(halt);
 
     let mutator_state = state.clone();
+    let mutatator_halt_rx = halt_rx.clone();
     let mutator_handle = tokio::spawn(async move {
-        mutator(mutator_state, config, mutator_notify2).await;
+        mutator(mutator_state, config, mutatator_halt_rx).await;
     });
 
-    let verifier_notify = Arc::new(Notify::new());
-    let verifier_notify2 = Arc::clone(&verifier_notify);
-
     let verifier_state = state.clone();
+    let verifier_halt_rx = halt_rx.clone();
     let verifier_handle = tokio::spawn(async move {
-        verifier(verifier_state, config, verifier_notify2).await;
+        verifier(verifier_state, config, verifier_halt_rx).await;
     });
 
     // build our application
@@ -82,12 +81,13 @@ async fn main() -> Result<(), Error> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
-    mutator_notify.notify_one();
+    halt = true;
+    halt_tx.send(halt)?;
+
     let join_result = mutator_handle.await?;
     tracing::debug!("mutator join result = {:?}", join_result);
 
-    verifier_notify.notify_one();
-    let join_result = verifier_handle.await?;
+     let join_result = verifier_handle.await?;
     tracing::debug!("verifier join result = {:?}", join_result);
 
     Ok(())
@@ -119,7 +119,7 @@ async fn get_genome(Extension(state): Extension<SharedState>) -> String {
 async fn mutator(
     state: Arc<RwLock<State>>,
     config: config::Config,
-    mutator_notify: Arc<tokio::sync::Notify>,
+    mut halt_rx: watch::Receiver<bool>,
 ) {
     // wait for the server to start
     // TODO: #3 retry connection
@@ -156,7 +156,7 @@ async fn mutator(
         };
         tokio::select! {
             _ = tokio::time::sleep(sleep_interval) => {}
-            _ = mutator_notify.notified() => {more = false}
+            _ = halt_rx.changed() => {more = false}
         }
     }
 }
@@ -167,7 +167,7 @@ async fn mutator(
 async fn verifier(
     state: Arc<RwLock<State>>,
     config: config::Config,
-    verifier_notify: Arc<tokio::sync::Notify>,
+    mut halt_rx: watch::Receiver<bool>,
 ) {
     // wait for the server to start
     // TODO: #3 retry connection
@@ -198,7 +198,7 @@ async fn verifier(
         let sleep_interval = Duration::from_secs(5);
         tokio::select! {
             _ = tokio::time::sleep(sleep_interval) => {}
-            _ = verifier_notify.notified() => {more = false}
+            _ = halt_rx.changed() => {more = false}
         };
     }
 }
