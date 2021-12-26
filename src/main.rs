@@ -6,7 +6,7 @@
 use anyhow::Error;
 use axum::{
     extract::Extension,
-    handler::{get, post},
+    routing::{get, post},
     Json, Router,
 };
 use crdts::list;
@@ -36,7 +36,9 @@ async fn main() -> Result<(), Error> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "crdt_genome=debug,tower_http=debug")
     }
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter("crdt_genome=debug,tower_http=debug")
+        .init();
 
     let config = config::load_configuration()?;
 
@@ -65,6 +67,7 @@ async fn main() -> Result<(), Error> {
     });
 
     // build our application
+    tracing::info!("build application");
     let app = Router::new()
         .route("/", get(say_hello))
         .route("/genome", post(update_genome))
