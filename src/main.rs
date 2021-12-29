@@ -124,10 +124,6 @@ async fn mutator(
     config: config::Config,
     mut halt_rx: watch::Receiver<bool>,
 ) {
-    // wait for the server to start
-    // TODO: #3 retry connection
-    tokio::time::sleep(Duration::from_secs(5)).await;
-
     let mut halt = *halt_rx.borrow();
     while !halt {
         let op = {
@@ -137,20 +133,9 @@ async fn mutator(
         let op_string = serde_json::to_string(&op).unwrap();
         for i in 0..config.actor_count {
             if i != config.actor_id {
+                let port_number = config.base_port_number + i;
                 let op_string = op_string.clone();
-                tokio::spawn(async move {
-                    let port_number = config.base_port_number + i;
-                    let uri = format!("http://127.0.0.1:{}/genome", port_number);
-                    let req = Request::builder()
-                        .method(Method::POST)
-                        .uri(uri.clone())
-                        .header("content-type", "application/json")
-                        .body(Body::from(op_string))
-                        .unwrap();
-                    let client = Client::new();
-                    let resp = client.request(req).await.unwrap();
-                    tracing::debug!("POST {}; Response: {}", uri, resp.status());
-                });
+                tokio::spawn(send_mutation_to_actor(port_number, op_string));
             }
         }
         let sleep_interval = {
@@ -164,6 +149,25 @@ async fn mutator(
     }
 }
 
+async fn send_mutation_to_actor(port_number: usize, op_string: String) {
+    let uri = format!("http://127.0.0.1:{}/genome", port_number);
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri(uri.clone())
+        .header("content-type", "application/json")
+        .body(Body::from(op_string))
+        .unwrap();
+    let client = Client::new();
+    match client.request(req).await {
+        Ok(resp) => {
+            tracing::debug!("POST {}; Response: {}", uri, resp.status());
+        }
+        Err(e) => {
+            tracing::error!("POST Failed {}", e);
+        }
+    }
+}
+
 /// peridically poll the other actors for their current genome
 /// uses HTTP GET /genome
 /// reports a count of the number of matchig genomes
@@ -172,37 +176,50 @@ async fn verifier(
     config: config::Config,
     mut halt_rx: watch::Receiver<bool>,
 ) {
-    // wait for the server to start
-    // TODO: #3 retry connection
-    tokio::time::sleep(Duration::from_secs(5)).await;
-
     let mut halt = *halt_rx.borrow();
     while !halt {
-        let mut match_count = 0;
+        let mut join_handles = vec![];
         for i in 0..config.actor_count {
             if i != config.actor_id {
                 let port_number = config.base_port_number + i;
-                let uri: hyper::Uri = format!("http://127.0.0.1:{}/genome", port_number)
-                    .parse()
-                    .unwrap();
-                let client = Client::new();
-                let resp = client.get(uri.clone()).await.unwrap();
-                tracing::debug!("GET {}; Response: {}", uri, resp.status());
-                let bytes = body::to_bytes(resp.into_body()).await.unwrap();
-                let remote_genome_str =
-                    String::from_utf8(bytes.to_vec()).expect("response was not valid utf-8");
-                let local_genome_str = state.read().unwrap().genome.to_string();
-                if local_genome_str == remote_genome_str {
-                    match_count += 1;
-                }
+                let join_handle = poll_actor_genome(port_number);
+                join_handles.push((i, join_handle));
             }
         }
-        tracing::debug!("match count = {}", match_count);
+
+        let local_genome_str = state.read().unwrap().genome.to_string();
+        let mut match_count = 0;
+        for (_actor_id, join_handle) in join_handles {
+            let remote_genome_str = join_handle.await;
+            if local_genome_str == remote_genome_str {
+                match_count += 1;
+            }
+        }
+        tracing::info!("match count = {}", match_count);
+
         let sleep_interval = Duration::from_secs(5);
         tokio::select! {
             _ = tokio::time::sleep(sleep_interval) => {}
             _ = halt_rx.changed() => {halt = *halt_rx.borrow()}
         };
+    }
+}
+
+async fn poll_actor_genome(port_number: usize) -> String {
+    let uri: hyper::Uri = format!("http://127.0.0.1:{}/genome", port_number)
+        .parse()
+        .unwrap();
+    let client = Client::new();
+    match client.get(uri.clone()).await {
+        Ok(resp) => {
+            tracing::debug!("GET {}; Response: {}", uri, resp.status());
+            let bytes = body::to_bytes(resp.into_body()).await.unwrap();
+            String::from_utf8(bytes.to_vec()).expect("response was not valid utf-8")
+        }
+        Err(e) => {
+            tracing::error!("GET failed: {}", e);
+            "".to_string()
+        }
     }
 }
 
