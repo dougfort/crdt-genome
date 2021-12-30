@@ -42,19 +42,33 @@ pub async fn mutator(
 
 async fn send_mutation_to_actor(port_number: usize, op_string: String) {
     let uri = format!("http://127.0.0.1:{}/genome", port_number);
-    let req = Request::builder()
-        .method(Method::POST)
-        .uri(uri.clone())
-        .header("content-type", "application/json")
-        .body(Body::from(op_string))
-        .unwrap();
+
     let client = Client::new();
-    match client.request(req).await {
-        Ok(resp) => {
-            tracing::debug!("POST {}; Response: {}", uri, resp.status());
-        }
-        Err(e) => {
-            tracing::error!("POST Failed {}", e);
+
+    let mut retry_count = 0;
+    'retry_loop: loop {
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri(uri.clone())
+            .header("content-type", "application/json")
+            .body(Body::from(op_string.clone()))
+            .unwrap();
+
+        match client.request(req).await {
+            Ok(resp) => {
+                tracing::debug!("POST {}; Response: {}", uri, resp.status());
+                break 'retry_loop;
+            }
+            Err(e) => {
+                if e.is_connect() && retry_count < 5 {
+                    tracing::warn!("POST connection failed: retry # {}", retry_count);
+                    retry_count += 1;
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue 'retry_loop;
+                }
+                tracing::error!("POST Failed {:?}", e);
+                break 'retry_loop;
+            }
         }
     }
 }

@@ -47,16 +47,27 @@ async fn poll_actor_genome(port_number: usize) -> String {
     let uri: hyper::Uri = format!("http://127.0.0.1:{}/genome", port_number)
         .parse()
         .unwrap();
+
     let client = Client::new();
-    match client.get(uri.clone()).await {
-        Ok(resp) => {
-            tracing::debug!("GET {}; Response: {}", uri, resp.status());
-            let bytes = body::to_bytes(resp.into_body()).await.unwrap();
-            String::from_utf8(bytes.to_vec()).expect("response was not valid utf-8")
-        }
-        Err(e) => {
-            tracing::error!("GET failed: {}", e);
-            "".to_string()
+
+    let mut retry_count = 0;
+    'retry_loop: loop {
+        match client.get(uri.clone()).await {
+            Ok(resp) => {
+                tracing::debug!("GET {}; Response: {}", uri, resp.status());
+                let bytes = body::to_bytes(resp.into_body()).await.unwrap();
+                return String::from_utf8(bytes.to_vec()).expect("response was not valid utf-8");
+            }
+            Err(e) => {
+                if e.is_connect() && retry_count < 5 {
+                    tracing::warn!("unable to connect. retry # {}", retry_count);
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    retry_count += 1;
+                    continue 'retry_loop;
+                };
+                tracing::error!("GET failed: {:?}", e);
+                return "".to_string();
+            }
         }
     }
 }
